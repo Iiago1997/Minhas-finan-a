@@ -1,0 +1,147 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#123b32">
+<title>Meu Financeiro</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f3f5f4;color:#202923;font-family:Arial,sans-serif;padding:18px}
+header{background:#123b32;color:white;padding:22px;border-radius:18px}
+h1{margin:0 0 6px;font-size:25px}
+small{opacity:.85}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}
+.card{background:white;padding:15px;border-radius:14px;box-shadow:0 2px 8px #0001}
+.card strong{display:block;font-size:19px;margin-top:8px;overflow-wrap:anywhere}
+section{background:white;padding:16px;border-radius:14px;margin-bottom:15px}
+h2{font-size:18px;margin:0 0 12px}
+input,select,button{width:100%;padding:13px;margin:5px 0;border-radius:10px;border:1px solid #d4ddd7;font-size:16px}
+button{background:#176b50;color:white;border:0;font-weight:bold}
+.item{padding:12px 0;border-bottom:1px solid #eee;overflow-wrap:anywhere}
+.item button{width:auto;padding:7px 10px;margin-left:8px;background:#a33;font-size:13px}
+.green{color:#16734c}.red{color:#b32626}.muted{color:#68736c;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+<h1>Meu Financeiro 💰</h1>
+<small>Seu dinheiro organizado, direto no iPhone.</small>
+</header>
+
+<div class="cards">
+<div class="card">Saldo atual<strong id="saldo">R$ 0,00</strong></div>
+<div class="card">Entradas<strong id="entradas">R$ 0,00</strong></div>
+<div class="card">Despesas<strong id="despesas">R$ 0,00</strong></div>
+<div class="card">Contas a pagar<strong id="contas">R$ 0,00</strong></div>
+</div>
+
+<section>
+<h2>Novo lançamento</h2>
+<p class="muted">Você também pode tocar no teclado do iPhone e usar o microfone para ditar.</p>
+<input id="descricao" placeholder="Ex.: salário, frete, aluguel">
+<input id="valor" type="number" min="0" step="0.01" placeholder="Valor em reais (ex.: 150,00)">
+<select id="tipo">
+<option value="entrada">Entrada de dinheiro</option>
+<option value="despesa">Despesa paga</option>
+<option value="conta">Conta a pagar</option>
+</select>
+<input id="data" type="date">
+<button onclick="adicionar()">Adicionar lançamento</button>
+</section>
+
+<section>
+<h2>Lançamento por frase</h2>
+<input id="frase" placeholder="Ex.: recebi 150 de frete">
+<button onclick="interpretar()">Organizar minha frase</button>
+<p class="muted">Exemplos: “recebi 150 de frete”, “gastei 25 no almoço”, “conta de luz 90”. Confira os campos antes de adicionar.</p>
+</section>
+
+<section>
+<h2>Meu histórico</h2>
+<div id="lista">Nenhum lançamento ainda.</div>
+<button onclick="exportar()">Fazer cópia de segurança</button>
+</section>
+
+<script>
+const chave="meuFinanceiroV1";
+let dados=[];
+try{dados=JSON.parse(localStorage.getItem(chave)||"[]")}catch(e){dados=[]}
+document.getElementById("data").value=new Date().toLocaleDateString("en-CA");
+
+function dinheiro(n){
+return Number(n).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+}
+function salvar(){
+localStorage.setItem(chave,JSON.stringify(dados));
+mostrar();
+}
+function adicionar(){
+const descricao=document.getElementById("descricao").value.trim();
+const valor=Number(document.getElementById("valor").value);
+const tipo=document.getElementById("tipo").value;
+const data=document.getElementById("data").value;
+if(!descricao||!valor||valor<0||!data){
+alert("Preencha a descrição, o valor e a data.");return;
+}
+dados.unshift({id:Date.now(),descricao,valor,tipo,data});
+salvar();
+document.getElementById("descricao").value="";
+document.getElementById("valor").value="";
+document.getElementById("frase").value="";
+}
+function interpretar(){
+const frase=document.getElementById("frase").value.trim();
+const achado=frase.match(/\d+(?:[.,]\d{1,2})?/);
+if(!frase||!achado){alert("Escreva uma descrição e um valor. Ex.: recebi 150 de frete");return;}
+const valor=Number(achado[0].replace(",","."));
+const texto=frase.toLowerCase();
+let tipo="despesa";
+if(/\b(recebi|ganhei|salário|salario|entrada|vendi|frete feito)\b/.test(texto))tipo="entrada";
+else if(/\b(conta|boleto|aluguel a pagar|vencimento)\b/.test(texto))tipo="conta";
+document.getElementById("descricao").value=frase;
+document.getElementById("valor").value=valor;
+document.getElementById("tipo").value=tipo;
+document.getElementById("frase").value="";
+alert("Pronto! Confira os campos e toque em Adicionar lançamento.");
+}
+function apagar(id){
+if(confirm("Apagar este lançamento?")){
+dados=dados.filter(x=>x.id!==id);salvar();
+}
+}
+function mostrar(){
+const soma=tipo=>dados.filter(x=>x.tipo===tipo).reduce((a,x)=>a+x.valor,0);
+const entradas=soma("entrada"),despesas=soma("despesa"),contas=soma("conta");
+document.getElementById("saldo").textContent=dinheiro(entradas-despesas);
+document.getElementById("entradas").textContent=dinheiro(entradas);
+document.getElementById("despesas").textContent=dinheiro(despesas);
+document.getElementById("contas").textContent=dinheiro(contas);
+const lista=document.getElementById("lista");
+if(!dados.length){lista.textContent="Nenhum lançamento ainda.";return;}
+lista.innerHTML="";
+dados.forEach(x=>{
+const item=document.createElement("div");item.className="item";
+const nome=document.createElement("strong");nome.textContent=x.descricao;
+const linha=document.createElement("div");linha.className="muted";
+linha.textContent=x.data+" • "+({entrada:"Entrada",despesa:"Despesa paga",conta:"Conta a pagar"}[x.tipo]);
+const valor=document.createElement("div");
+valor.className=x.tipo==="entrada"?"green":"red";
+valor.textContent=(x.tipo==="entrada"?"+ ":"− ")+dinheiro(x.valor);
+const botao=document.createElement("button");botao.textContent="Apagar";
+botao.onclick=()=>apagar(x.id);
+item.append(nome,linha,valor,botao);lista.appendChild(item);
+});
+}
+function exportar(){
+const arquivo=new Blob([JSON.stringify(dados,null,2)],{type:"application/json"});
+const url=URL.createObjectURL(arquivo);
+const a=document.createElement("a");a.href=url;a.download="meu-financeiro-backup.json";a.click();
+URL.revokeObjectURL(url);
+}
+mostrar();
+</script>
+</body>
+</html>
